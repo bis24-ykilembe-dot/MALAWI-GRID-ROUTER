@@ -1,0 +1,903 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Malawi Grid Router</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* Layout: banner with live facts, control bar, 3D/2D network view on the left, tabbed results on the right; stacks on phones. */
+:root{
+  --bg:#eef2f0; --surface:#ffffff; --ink:#16211e; --muted:#5a6a65; --line:#d3dbd8;
+  --accent:#0b7a75; --accent-ink:#ffffff; --accent-soft:#d5efed;
+  --mst:#c26a08; --mst-soft:#f9e8d0;
+  --good:#1b7a3d; --bad:#b3261e; --edge:#8b9a95; --hero:#0f2f2c; --hero-ink:#e8f6f4; --scene:#dfe9e6;
+  --font-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --shadow:0 1px 2px rgba(15,47,44,.08),0 8px 24px rgba(15,47,44,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1311; --surface:#15201d; --ink:#e6efec; --muted:#93a39d; --line:#2a3935;
+  --accent:#4cc7c0; --accent-ink:#06201e; --accent-soft:#123a37;
+  --mst:#f0a64a; --mst-soft:#3b2a10; --good:#58c27d; --bad:#ff8a80; --edge:#5f726c; --hero:#0a1f1d; --hero-ink:#e8f6f4; --scene:#0f1a18;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0c1311; --surface:#15201d; --ink:#e6efec; --muted:#93a39d; --line:#2a3935;
+  --accent:#4cc7c0; --accent-ink:#06201e; --accent-soft:#123a37;
+  --mst:#f0a64a; --mst-soft:#3b2a10; --good:#58c27d; --bad:#ff8a80; --edge:#5f726c; --hero:#0a1f1d; --hero-ink:#e8f6f4; --scene:#0f1a18;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3); color-scheme:dark;}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-block:16px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1260px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.hero{background:var(--hero);color:var(--hero-ink);border-radius:12px;padding:22px 24px;display:flex;flex-wrap:wrap;gap:16px 32px;align-items:flex-end;justify-content:space-between;
+  background-image:radial-gradient(circle at 92% 0%,rgba(76,199,192,.25),transparent 45%),linear-gradient(transparent 95%,rgba(255,255,255,.05) 95%),linear-gradient(90deg,transparent 95%,rgba(255,255,255,.05) 95%);background-size:auto,28px 28px,28px 28px}
+.hero h1{font-size:clamp(1.3rem,3.2vw,2rem);margin:0;font-weight:800;letter-spacing:-.02em;text-wrap:balance;max-width:20ch;line-height:1.12}
+.hero p{margin:8px 0 0;opacity:.8;max-width:56ch;font-size:.94rem}
+.stats{display:flex;gap:10px;flex-wrap:wrap;list-style:none;margin:0;padding:0}
+.stats li{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 14px;min-width:84px}
+.stats b{display:block;font-family:var(--font-data);font-size:1.4rem;font-weight:500;line-height:1.1}
+.stats span{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;opacity:.75}
+.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:var(--shadow)}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 200px}
+.field label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-width:0;width:100%}
+button{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:9px 15px;cursor:pointer;transition:transform .12s,filter .12s,background .12s}
+button.ghost{background:transparent;color:var(--accent)}
+button:hover{filter:brightness(1.1);transform:translateY(-1px)}
+button:active{transform:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:940px){.main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0;box-shadow:var(--shadow)}
+.mapcard{padding:10px;display:flex;flex-direction:column;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:flex-start}
+.seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:6px 14px;font-size:.84rem;transform:none}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.stage{position:relative;border-radius:8px;overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+#map[hidden]{display:none}
+#map{position:absolute;inset:0;width:100%;height:100%;padding:6px}
+.hud{position:absolute;left:10px;right:10px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.hud button{pointer-events:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);padding:5px 11px;font-size:.8rem;box-shadow:var(--shadow);transform:none}
+.hud button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tip{position:absolute;top:10px;left:10px;max-width:calc(100% - 20px);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:.82rem;box-shadow:var(--shadow);pointer-events:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;padding:0 4px;color:var(--muted);font-size:.8rem}
+.legend i{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;background:transparent;color:var(--muted);border:0;border-bottom:3px solid transparent;border-radius:0;padding:12px 8px;transform:none}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.panel{padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.result{background:var(--accent-soft);border-radius:8px;padding:12px 14px;animation:pop .35s ease-out}
+.result.mst{background:var(--mst-soft)}
+.result .big{font-family:var(--font-data);font-size:1.5rem;font-weight:500;font-variant-numeric:tabular-nums}
+.result .route{font-size:.9rem;margin-top:2px;overflow-wrap:anywhere}
+@keyframes pop{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
+.scroll{overflow-x:auto;max-height:420px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:.82rem}
+th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{position:sticky;top:0;background:var(--surface);font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+td.m{font-family:var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.hit td{background:var(--accent-soft)}
+tr.keep td{background:var(--mst-soft)}
+.ok{color:var(--good);font-weight:600}.no{color:var(--bad);font-weight:600}
+.muted{color:var(--muted)}
+h2{font-size:1rem;margin:0}
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.vlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:2px 14px;padding:12px 14px;font-size:.82rem;color:var(--muted)}
+.vlist b{font-family:var(--font-data);color:var(--ink);font-weight:500;margin-right:6px}
+/* svg map */
+.e{stroke:var(--edge);stroke-width:1.6}
+.e.path{stroke:var(--accent);stroke-width:5}
+.e.mst{stroke:var(--mst);stroke-width:4.5}
+.el{font:500 14px var(--font-data);fill:var(--muted);stroke:var(--surface);stroke-width:4px;paint-order:stroke;text-anchor:middle;dominant-baseline:central}
+.n{fill:var(--surface);stroke:var(--ink);stroke-width:2;cursor:pointer}
+.n.onpath{fill:var(--accent);stroke:var(--accent)}
+.nt{font:600 19px var(--font-body);fill:var(--ink);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.n.onpath+.nt{fill:var(--accent-ink)}
+.nn{font:500 13px var(--font-body);fill:var(--muted);stroke:var(--surface);stroke-width:3.5px;paint-order:stroke;text-anchor:middle;pointer-events:none}
+.ring{fill:none;stroke:var(--mst);stroke-width:3;stroke-dasharray:4 3}
+@media (prefers-reduced-motion:reduce){.result{animation:none}button{transition:none}}
+
+.sim{display:flex;flex-direction:column;gap:8px;padding:2px 4px}
+.simrow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.tr{display:flex;gap:6px}
+.tr button{background:var(--bg);color:var(--ink);border-color:var(--line);padding:6px 11px;min-width:40px}
+.tr button#sPlay{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-width:96px}
+.spd{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:6px;margin-left:auto}
+.spd select{width:auto;padding:5px 8px}
+#sScrub{width:100%;accent-color:var(--accent)}
+.say{font-size:.9rem;background:var(--accent-soft);border-radius:8px;padding:8px 12px;min-height:2.9em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.8rem;color:var(--muted)}
+.chip{font-family:var(--font-data);border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--ink);background:var(--bg)}
+.chip b{margin-right:5px}.chip.next{border-color:var(--accent);background:var(--accent-soft)}
+tr.cur td{background:var(--accent-soft)!important;font-weight:700}tr.fut td{opacity:.38}
+.seg[hidden]{display:none}
+</style>
+
+<style>
+/* ===== Polish: larger type, proper tabs, responsive and interactive buttons ===== */
+body{font-size:16px}
+button,select{min-height:44px;font-size:.95rem;letter-spacing:.01em}
+button{border-radius:10px;box-shadow:0 1px 2px rgba(15,47,44,.15);transition:transform .12s,box-shadow .15s,filter .15s,background .15s,color .15s,border-color .15s;-webkit-tap-highlight-color:transparent;user-select:none}
+button:hover{box-shadow:0 4px 12px rgba(11,122,117,.28);filter:none;transform:translateY(-1px)}
+button:active{transform:translateY(1px) scale(.97);box-shadow:none}
+button.ghost:hover{background:var(--accent-soft)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+select{cursor:pointer;border-radius:10px;transition:border-color .15s,box-shadow .15s}
+select:hover{border-color:var(--accent)}select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field label{font-size:.78rem}
+.bar{gap:12px 14px;padding:14px 16px}
+.bar>button{flex:0 0 auto}
+.bar .field{flex:1 1 220px}
+/* Tabs: segmented control with a sliding-looking active pill */
+.tabs{gap:6px;padding:8px;background:var(--bg);border-bottom:1px solid var(--line);border-radius:10px 10px 0 0;position:sticky;top:0;z-index:2}
+.tab{flex:1 1 0;min-height:46px;font-size:1rem;font-weight:700;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:9px;padding:10px 12px;box-shadow:none;white-space:nowrap}
+.tab:hover{color:var(--ink);background:var(--accent-soft);box-shadow:none;transform:none}
+.tab[aria-selected="true"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);box-shadow:0 3px 10px rgba(11,122,117,.35)}
+.tab[aria-selected="true"]:hover{background:var(--accent)}
+.tab:active{transform:scale(.97)}
+#t-mst[aria-selected="true"]{background:var(--mst);border-color:var(--mst);color:#fff;box-shadow:0 3px 10px rgba(194,106,8,.35)}
+.tab::before{margin-right:7px;font-weight:400}
+#t-path::before{content:"\2192"}#t-mst::before{content:"\2234"}#t-tests::before{content:"\2713"}
+/* Map controls and player */
+.seg button{min-height:40px;font-size:.92rem;padding:8px 16px}
+.seg button:hover{box-shadow:none;transform:none;background:var(--accent-soft);color:var(--ink)}
+.seg button[aria-pressed="true"]:hover{background:var(--accent);color:var(--accent-ink)}
+.hud button{min-height:36px;font-size:.86rem;padding:6px 13px;border-radius:999px}
+.hud button:hover{background:var(--accent-soft)}.hud button[aria-pressed="true"]:hover{background:var(--accent)}
+.tr button{min-height:44px;min-width:46px;font-size:1.05rem}
+.tr button:hover{background:var(--accent-soft);color:var(--ink)}
+.tr button#sPlay{font-size:1rem;min-width:104px}.tr button#sPlay:hover{background:var(--accent);color:var(--accent-ink);filter:brightness(1.12)}
+.spd{font-size:.9rem}.spd select{min-height:40px}
+.say{font-size:1rem;line-height:1.5}
+.chips{font-size:.9rem}.legend{font-size:.9rem}
+/* Reading text */
+.panel{padding:16px;gap:14px}
+h2{font-size:1.15rem}.note{font-size:.95rem}
+.result .big{font-size:1.8rem}.result .route{font-size:1rem}
+table{font-size:.92rem}th{font-size:.76rem}th,td{padding:8px 10px}
+tbody tr:hover td{background:var(--accent-soft)}
+details>summary{cursor:pointer;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);list-style:none;transition:background .15s}
+details>summary:hover{background:var(--accent-soft)}details[open]>summary{margin-bottom:10px}
+details>summary::before{content:"\25B8  "}details[open]>summary::before{content:"\25BE  "}
+#vlist{font-size:.95rem}
+/* Phones and narrow panes */
+@media (max-width:640px){
+  body{padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+  .bar>.field{flex:1 1 100%}
+  .bar>button{flex:1 1 calc(50% - 7px)}
+  .bar>#go{flex:1 1 100%}
+  .tab{font-size:.92rem;padding:10px 6px}.tab::before{display:none}
+  .simrow{flex-direction:column;align-items:stretch}
+  .tr{justify-content:space-between}.tr button{flex:1}.tr button#sPlay{flex:2}
+  .spd{margin-left:0;justify-content:space-between}
+  .seg{align-self:stretch}.seg button{flex:1}
+  .result .big{font-size:1.5rem}
+}
+@media (prefers-reduced-motion:reduce){button:hover,button:active{transform:none}}
+</style>
+
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <h1>Malawi Regional Electrical Grid Connectivity Network</h1>
+      <p>Pick two sites, then watch Dijkstra explore the grid one step at a time: play it, pause it, step through it or drag the slider. Switch to Kruskal to see the spanning tree form.</p>
+    </div>
+    <ul class="stats" aria-label="Network facts">
+      <li><b>20</b><span>Sites</span></li>
+      <li><b>34</b><span>Links</span></li>
+      <li><b id="statBest">495</b><span>Best A to Q</span></li>
+    </ul>
+  </section>
+
+  <div class="bar">
+    <div class="field"><label for="from">From</label><select id="from"></select></div>
+    <div class="field"><label for="to">To</label><select id="to"></select></div>
+    <div class="field"><label for="block">Fault on link</label><select id="block"></select></div>
+    <button id="go">Find shortest path</button>
+    <button id="mstbtn" class="ghost">Build spanning tree</button>
+    <button id="clear" class="ghost">Clear</button>
+  </div>
+
+  <div class="main">
+    <div class="card mapcard">
+      <div class="seg" role="group" aria-label="Map view" hidden>
+        <button id="v3" aria-pressed="true">3D view</button>
+        <button id="v2" aria-pressed="false">2D map</button>
+      </div>
+      <div class="stage" id="stage">
+        <div id="view3d"></div>
+        <svg id="map" viewBox="150 95 960 820" role="img" aria-label="Network map of 20 electricity sites in Malawi" hidden></svg>
+        <div class="tip" id="tip" hidden></div>
+        <div class="hud" id="hud">
+          <button id="replay">Replay trip</button>
+          <button id="follow" aria-pressed="false">Follow truck</button>
+          <button id="afocus" aria-pressed="true">Auto-focus</button>
+          <button id="reset">Reset view</button>
+        </div>
+      </div>
+      <div class="sim" id="sim">
+        <div class="simrow">
+          <div class="seg" role="group" aria-label="Algorithm"><button id="mdij" aria-pressed="true">Dijkstra</button><button id="mkru" aria-pressed="false">Kruskal</button></div>
+          <div class="tr"><button id="sFirst" title="Restart" aria-label="Restart">⏮</button><button id="sBack" title="Step back (←)" aria-label="Step back">◀</button><button id="sPlay">▶ Play</button><button id="sNext" title="Step forward (→)" aria-label="Step forward">▶|</button><button id="sLast" title="Skip to end" aria-label="Skip to end">⏭</button></div>
+          <label class="spd">Speed <select id="sSpeed"><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+        </div>
+        <input type="range" id="sScrub" min="0" max="0" value="0" aria-label="Algorithm step">
+        <div class="say" id="sSay" aria-live="polite"></div>
+        <div class="chips" id="sQ"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>Shortest path</span>
+        <span><i style="background:var(--mst)"></i>Spanning tree</span>
+        <span id="hint">Drag to rotate, scroll or pinch to zoom, click two sites to set From and To.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="t-path" aria-selected="true" data-tab="path">Shortest path</button>
+        <button class="tab" role="tab" id="t-mst" aria-selected="false" data-tab="mst">Spanning tree</button>
+        <button class="tab" role="tab" id="t-tests" aria-selected="false" data-tab="tests">Tests</button>
+      </div>
+      <div class="panel" id="p-path"></div>
+      <div class="panel" id="p-mst" hidden></div>
+      <div class="panel" id="p-tests" hidden></div>
+    </div>
+  </div>
+
+  <div class="card"><div class="vlist" id="vlist"></div></div>
+</div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const NAMES = {
+  A:"Nkula Power Station",B:"Tedzani Power Station",C:"Kapichira Power Station",D:"Wovwe Power Station",
+  E:"Chichiri Substation",F:"Blantyre West Substation",G:"Chigumula Substation",H:"Nchalo Substation",
+  I:"Phombeya Substation",J:"Golomoti Substation",K:"Kanengo Substation",L:"Old Town Substation",
+  M:"Lilongwe Central Substation",N:"Salima Substation",O:"Nkhotakota Substation",P:"Mzuzu Distribution Centre",
+  Q:"Karonga Substation",R:"Luwinga Power Station",S:"Ndirande Distribution Centre",T:"Mangochi Distribution Centre"};
+const SHORT = {A:"Nkula",B:"Tedzani",C:"Kapichira",D:"Wovwe",E:"Chichiri",F:"Blantyre W.",G:"Chigumula",H:"Nchalo",
+  I:"Phombeya",J:"Golomoti",K:"Kanengo",L:"Old Town",M:"Lilongwe C.",N:"Salima",O:"Nkhotakota",P:"Mzuzu",
+  Q:"Karonga",R:"Luwinga",S:"Ndirande",T:"Mangochi"};
+const POS = {Q:[673,142],R:[1005,182],D:[407,262],P:[872,246],O:[607,302],M:[873,407],N:[740,439],L:[1072,439],
+  K:[939,504],J:[713,545],I:[540,600],F:[739,681],E:[607,730],B:[367,746],A:[207,786],C:[473,802],
+  G:[806,786],T:[1032,810],S:[873,851],H:[407,866]};
+const EDGES = [
+  ["A","B",85],["A","E",120],["A","H",75],["B","C",95],["B","I",110],["B","J",130],["C","H",80],["C","I",100],
+  ["D","O",140],["D","Q",90],["E","F",45],["E","G",55],["E","S",35],["F","G",40],["F","K",180],["G","H",70],
+  ["G","S",30],["G","T",95],["I","J",65],["I","K",85],["J","K",90],["J","N",75],["K","L",30],["K","M",35],
+  ["K","N",80],["L","M",25],["L","P",150],["M","N",65],["N","O",70],["O","P",100],["O","Q",135],["P","R",45],
+  ["Q","R",85],["S","T",115]];
+
+/* ---------------- ALGORITHMS ---------------- */
+function buildGraph(edges){
+  const g={};
+  for(const [u,v,w] of edges){(g[u]??={})[v]=w;(g[v]??={})[u]=w;}
+  return g;
+}
+const G = buildGraph(EDGES);
+const key=(a,b)=>a<b?a+b:b+a;
+let blocked=""; /* link key like "JN" switched off to simulate a fault */
+const activeGraph=()=>blocked?buildGraph(EDGES.filter(e=>key(e[0],e[1])!==blocked)):G;
+
+/* Dijkstra: D(v)=min(D(v),D(u)+w(u,v)); stops when the target is selected. Records every step. */
+function dijkstra(graph,source,target){
+  if(!(source in graph)) throw new Error("unknown vertex "+source);
+  if(target!==undefined && !(target in graph)) throw new Error("unknown vertex "+target);
+  const dist={},prev={},done=new Set(),steps=[],N=Object.keys(graph).length;
+  for(const v in graph){dist[v]=Infinity;prev[v]=null;}
+  dist[source]=0;
+  /* binary min-heap of [distance, name]; stale entries are skipped (lazy deletion): O((V+E) log V) */
+  const h=[],lt=(x,y)=>x[0]<y[0]||(x[0]===y[0]&&x[1]<y[1]);
+  const push=e=>{let i=h.push(e)-1;while(i>0){const p=(i-1)>>1;if(!lt(h[i],h[p]))break;[h[i],h[p]]=[h[p],h[i]];i=p;}};
+  const pop=()=>{const top=h[0],last=h.pop();if(h.length){h[0]=last;let i=0;for(;;){let l=2*i+1,r=l+1,m=i;if(l<h.length&&lt(h[l],h[m]))m=l;if(r<h.length&&lt(h[r],h[m]))m=r;if(m===i)break;[h[i],h[m]]=[h[m],h[i]];i=m;}}return top;};
+  push([0,source]);
+  while(h.length&&done.size<N){
+    const [d,u]=pop();
+    if(done.has(u)||d>dist[u]) continue;
+    done.add(u);
+    const st={step:steps.length+1,u,d,updates:[]};
+    if(u!==target){
+      for(const v of Object.keys(graph[u]).sort()){
+        if(done.has(v)) continue;
+        const nd=d+graph[u][v];
+        if(nd<dist[v]){st.updates.push({v,old:dist[v],nd,w:graph[u][v]});dist[v]=nd;prev[v]=u;push([nd,v]);}
+      }
+    }
+    steps.push(st);
+    if(u===target) break;
+  }
+  return {dist,prev,steps};
+}
+function pathTo(prev,t){const p=[];for(let x=t;x!==null;x=prev[x])p.push(x);return p.reverse();}
+function shortest(graph,s,t){
+  const r=dijkstra(graph,s,t);
+  if(r.dist[t]===Infinity) return {path:null,cost:Infinity,steps:r.steps};
+  return {path:pathTo(r.prev,t),cost:r.dist[t],steps:r.steps};
+}
+
+/* Kruskal with union-find. Records every edge decision. */
+function kruskal(edges,vertices){
+  const parent={};vertices.forEach(v=>parent[v]=v);
+  const find=x=>parent[x]===x?x:(parent[x]=find(parent[x]));
+  const sorted=[...edges].sort((a,b)=>a[2]-b[2]||(a[0]+a[1]).localeCompare(b[0]+b[1]));
+  const tree=[],steps=[];let total=0;
+  for(const [u,v,w] of sorted){
+    const ru=find(u),rv=find(v);
+    if(ru!==rv){parent[ru]=rv;tree.push([u,v,w]);total+=w;steps.push({u,v,w,take:true,total});}
+    else steps.push({u,v,w,take:false,total});
+  }
+  return {tree,total,steps};
+}
+/* Prim, used only as an independent check on Kruskal's total. */
+function primTotal(graph){
+  const vs=Object.keys(graph).sort(),seen=new Set([vs[0]]);let total=0;
+  while(seen.size<vs.length){
+    let best=null;
+    for(const u of seen)for(const v in graph[u]) if(!seen.has(v)&&(best===null||graph[u][v]<best[2])) best=[u,v,graph[u][v]];
+    if(!best) return Infinity;
+    seen.add(best[1]);total+=best[2];
+  }
+  return total;
+}
+
+/* ---------------- TESTS ---------------- */
+function runTests(){
+  const out=[];
+  const t=(name,input,expected,fn)=>{
+    let actual,pass=false;
+    try{const r=fn();pass=r.pass;actual=r.actual;}catch(e){actual="threw: "+e.message;}
+    out.push({name,input,expected,actual,pass});
+  };
+  const V=Object.keys(G).sort();
+  const bf=s=>{const d={};V.forEach(v=>d[v]=Infinity);d[s]=0;
+    for(let i=0;i<V.length-1;i++)for(const [u,v,w] of EDGES){if(d[u]+w<d[v])d[v]=d[u]+w;if(d[v]+w<d[u])d[u]=d[v]+w;}return d;};
+  t("Vertex count","graph","20 vertices",()=>({pass:V.length===20,actual:V.length+" vertices"}));
+  t("Edge count","graph","34 edges",()=>({pass:EDGES.length===34,actual:EDGES.length+" edges"}));
+  t("Simple graph","edge list","no loops, no duplicates",()=>{
+    const ok=EDGES.every(e=>e[0]!==e[1])&&new Set(EDGES.map(e=>key(e[0],e[1]))).size===EDGES.length;
+    return {pass:ok,actual:ok?"none found":"found some"};});
+  t("Undirected","adjacency lists","w(u,v) = w(v,u) everywhere",()=>({pass:V.every(u=>Object.entries(G[u]).every(([v,w])=>G[v][u]===w)),actual:"symmetric"}));
+  t("Connected","BFS from A","all 20 reached",()=>{const r=dijkstra(G,"A");const n=V.filter(v=>r.dist[v]<Infinity).length;return {pass:n===20,actual:n+" reached"};});
+  t("Source to itself","A to A","cost 0, path A",()=>{const r=shortest(G,"A","A");return {pass:r.cost===0&&r.path.join("")==="A",actual:`cost ${r.cost}, path ${r.path}`};});
+  t("Adjacent vertices","A to B","cost 85",()=>{const r=shortest(G,"A","B");return {pass:r.cost===85,actual:`cost ${r.cost}, path ${r.path.join("-")}`};});
+  t("Main case","A to Q","cost 495, A-B-J-N-O-Q",()=>{const r=shortest(G,"A","Q");return {pass:r.cost===495&&r.path.join("")==="ABJNOQ",actual:`cost ${r.cost}, path ${r.path.join("-")}`};});
+  t("Path cost equals edge sum","A to Q","sum of edges = 495",()=>{const r=shortest(G,"A","Q");const s=r.path.slice(1).reduce((a,v,i)=>a+G[r.path[i]][v],0);return {pass:s===r.cost,actual:"sum = "+s};});
+  t("Symmetry","all 400 pairs","cost(s,t) = cost(t,s)",()=>{let bad=0;for(const s of V){const d=dijkstra(G,s).dist;for(const x of V) if(dijkstra(G,x).dist[s]!==d[x]) bad++;}return {pass:bad===0,actual:bad+" mismatches"};});
+  t("Independent check","Bellman-Ford from every source","same distances as Dijkstra",()=>{let bad=0;for(const s of V){const a=dijkstra(G,s).dist,b=bf(s);for(const v of V) if(a[v]!==b[v]) bad++;}return {pass:bad===0,actual:bad+" differences"};});
+  t("Unknown source","Z to A","error raised",()=>{try{shortest(G,"Z","A");return {pass:false,actual:"no error"};}catch(e){return {pass:true,actual:e.message};}});
+  t("Unknown destination","A to Z","error raised",()=>{try{shortest(G,"A","Z");return {pass:false,actual:"no error"};}catch(e){return {pass:true,actual:e.message};}});
+  t("Unreachable vertex","X to Q on two separate islands","no path, cost infinity",()=>{const g=buildGraph([["X","Y",5],["P","Q",3]]);const r=shortest(g,"X","Q");return {pass:r.path===null&&r.cost===Infinity,actual:"no path"};});
+  t("MST size","Kruskal on 20 vertices","19 edges",()=>{const k=kruskal(EDGES,V);return {pass:k.tree.length===19,actual:k.tree.length+" edges"};});
+  t("MST spans all vertices","tree edges only","connected",()=>{const k=kruskal(EDGES,V);const g=buildGraph(k.tree);const n=V.filter(v=>dijkstra(g,"A").dist[v]<Infinity).length;return {pass:n===20,actual:n+" reached"};});
+  t("MST cost matches Prim","Kruskal vs Prim","same total",()=>{const k=kruskal(EDGES,V),p=primTotal(G);return {pass:k.total===p,actual:`Kruskal ${k.total}, Prim ${p}`};});
+  t("Fault reroute","A to Q with link N-O removed","cost rises above 495 or no path",()=>{const g=buildGraph(EDGES.filter(e=>key(e[0],e[1])!=="NO"));const r=shortest(g,"A","Q");return {pass:r.cost>495&&!r.path.includes("N-O"),actual:`cost ${r.cost}, path ${r.path.join("-")}`};});
+  t("Heap vs brute force","all 400 pairs, plain O(V^2) scan","same distances",()=>{let bad=0;for(const s of V){const d={},done=new Set();V.forEach(v=>d[v]=Infinity);d[s]=0;
+    while(done.size<V.length){let u=null;for(const v of V)if(!done.has(v)&&(u===null||d[v]<d[u]))u=v;done.add(u);for(const v in G[u])d[v]=Math.min(d[v],d[u]+G[u][v]);}
+    const a=dijkstra(G,s).dist;for(const v of V)if(a[v]!==d[v])bad++;}return {pass:bad===0,actual:bad+" differences"};});
+  return out;
+}
+
+/* ---------------- SHARED UI STATE ---------------- */
+const $=id=>document.getElementById(id);
+const svg=$("map"),NS="http://www.w3.org/2000/svg";
+const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const mk=(tag,attrs,text)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!==undefined)e.textContent=text;return e;};
+const state={from:"A",to:"Q",path:[],pathEdges:new Set(),pathNodes:new Set(),mstEdges:new Set(),mstOrder:new Map()};
+const fmt=n=>n===Infinity?"∞":n;
+const sim={mode:"dij",i:0,n:0,playing:false,acc:0,speed:1};
+state.dsteps=[];state.ksteps=[];
+let pick=0;
+function pickSite(v){
+  if(pick===0){$("from").value=v;}else{$("to").value=v;}
+  pick^=1;solve();
+}
+function countUp(el,to){
+  if(reduce||!isFinite(to)){el.textContent=to;return;}
+  const t0=performance.now();
+  (function step(now){const p=Math.min((now-t0)/500,1);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step);})(t0);
+}
+
+/* ---------------- 2D MAP ---------------- */
+function drawMap(){
+  svg.replaceChildren();
+  const eg=mk("g",{}),lg=mk("g",{}),ng=mk("g",{});
+  for(const [u,v,w] of EDGES){
+    const k=key(u,v),[x1,y1]=POS[u],[x2,y2]=POS[v];
+    const cls="e"+(state.pathEdges.has(k)?" path":"")+(state.mstEdges.has(k)?" mst":"");
+    eg.append(mk("line",{x1,y1,x2,y2,class:cls}));
+    const f=(u<v)?0.45:0.55;
+    lg.append(mk("text",{x:x1+(x2-x1)*f,y:y1+(y2-y1)*f,class:"el"},w));
+  }
+  for(const v of Object.keys(POS).sort()){
+    const [x,y]=POS[v];
+    const g=mk("g",{"data-v":v,tabindex:"0",role:"button","aria-label":`${v}: ${NAMES[v]}`});
+    g.append(mk("title",{},`${v}: ${NAMES[v]}`));
+    if(v===state.from||v===state.to) g.append(mk("circle",{cx:x,cy:y,r:27,class:"ring"}));
+    g.append(mk("circle",{cx:x,cy:y,r:20,class:"n"+(state.pathNodes.has(v)?" onpath":"")}));
+    g.append(mk("text",{x,y,class:"nt"},v));
+    g.append(mk("text",{x,y:y+38,class:"nn"},SHORT[v]));
+    ng.append(g);
+  }
+  svg.append(eg,lg,ng);
+  rebuild3D();
+}
+svg.addEventListener("click",e=>{const g=e.target.closest("[data-v]");if(g)pickSite(g.dataset.v);});
+svg.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();const g=e.target.closest("[data-v]");if(g)pickSite(g.dataset.v);}});
+
+/* ---------------- 3D SCENE (Three.js) ---------------- */
+const hasGL=(()=>{try{const c=document.createElement("canvas");return !!(window.THREE&&(c.getContext("webgl")||c.getContext("experimental-webgl")));}catch(e){return false;}})();
+let T=null,view="2d";
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* Spread the sites out: scale the layout up, then push apart any two that sit closer than MIN so spacing looks even. */
+const P3={};(()=>{const k=28,MIN=4.8,ks=Object.keys(POS);for(const v of ks)P3[v]=[(POS[v][0]-640)/k,(POS[v][1]-500)/k];
+  for(let it=0;it<80;it++)for(const a of ks)for(const b of ks){if(a>=b)continue;const dx=P3[b][0]-P3[a][0],dz=P3[b][1]-P3[a][1],d=Math.hypot(dx,dz)||.01;
+    if(d<MIN){const m=(MIN-d)/2,ux=dx/d,uz=dz/d;P3[a][0]-=ux*m;P3[a][1]-=uz*m;P3[b][0]+=ux*m;P3[b][1]+=uz*m;}}})();
+const w3=v=>new THREE.Vector3(P3[v][0],0,P3[v][1]);
+const kind=v=>"ABCDR".includes(v)?"gen":("PST".includes(v)?"dist":"sub");
+
+function roundRect(x,px,py,w,h,r){x.beginPath();x.moveTo(px+r,py);x.arcTo(px+w,py,px+w,py+h,r);x.arcTo(px+w,py+h,px,py+h,r);x.arcTo(px,py+h,px,py,r);x.arcTo(px,py,px+w,py,r);x.closePath();}
+function textSprite(text,o){
+  const fs=o.fs||34,pad=o.pad??18,font=`${o.weight||600} ${fs}px "Public Sans",system-ui,sans-serif`;
+  const c=document.createElement("canvas"),x=c.getContext("2d");
+  x.font=font;const tw=Math.ceil(x.measureText(text).width);
+  c.width=tw+pad*2;c.height=Math.round(fs*1.5);
+  x.font=font;x.textAlign="center";x.textBaseline="middle";
+  if(o.bg){x.globalAlpha=.92;x.fillStyle=o.bg;roundRect(x,0,0,c.width,c.height,c.height/2);x.fill();x.globalAlpha=1;}
+  if(o.halo){x.lineWidth=8;x.strokeStyle=o.halo;x.lineJoin="round";x.strokeText(text,c.width/2,c.height/2+2);}
+  x.fillStyle=o.fg;x.fillText(text,c.width/2,c.height/2+2);
+  const tex=new THREE.CanvasTexture(c);tex.minFilter=THREE.LinearFilter;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false}));
+  const k=o.k||0.022;s.scale.set(c.width*k,c.height*k,1);s.renderOrder=10;return s;
+}
+function makeCar(color,scale=1,glow=false){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1,.34,.5),new THREE.MeshStandardMaterial({color,roughness:.5,metalness:.1,emissive:glow?color:0x000000,emissiveIntensity:glow?.25:0}));
+  body.position.y=.3;g.add(body);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(.46,.28,.44),new THREE.MeshStandardMaterial({color:0xe9f2f0,roughness:.3}));
+  cab.position.set(.18,.6,0);g.add(cab);
+  const wm=new THREE.MeshStandardMaterial({color:0x1b1f1e,roughness:.9});
+  for(const sx of [-.32,.32])for(const sz of [-.27,.27]){
+    const w=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,.1,12),wm);w.rotation.x=Math.PI/2;w.position.set(sx,.13,sz);g.add(w);}
+  const hl=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.34),new THREE.MeshBasicMaterial({color:0xfff2b0}));
+  hl.position.set(.51,.32,0);g.add(hl);
+  g.scale.setScalar(scale);return g;
+}
+function disposeGroup(g){
+  g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>{if(m.map)m.map.dispose();m.dispose();});}});
+}
+
+
+/* ---------------- ALGORITHM SIMULATION ---------------- */
+const AMB="#e8a33d",PAL=["#3b82c4","#c2655a","#8a63c9","#2f9e6e","#d0a21d","#c4609b","#4aa3b8","#7a8f2e"];
+function dijSnap(i){const dist={},prev={},settled=new Set();for(const v in G)dist[v]=Infinity;dist[state.from]=0;
+  const S=state.dsteps;i=Math.min(i,S.length);for(let j=0;j<i;j++){settled.add(S[j].u);for(const x of S[j].updates){dist[x.v]=x.nd;prev[x.v]=S[j].u;}}
+  return {dist,prev,settled,cur:i?S[i-1]:null};}
+function kruSnap(i){const par={};for(const v in G)par[v]=v;const f=x=>par[x]===x?x:(par[x]=f(par[x]));
+  const S=state.ksteps,kept=new Set(),rej=new Set();i=Math.min(i,S.length);let comps=Object.keys(G).length;
+  for(let j=0;j<i;j++){const e=S[j],k=key(e.u,e.v);if(e.take){par[f(e.u)]=f(e.v);kept.add(k);comps--;}else rej.add(k);}
+  const root={},size={};for(const v in G){root[v]=f(v);size[root[v]]=(size[root[v]]||0)+1;}
+  return {kept,rej,comps,root,size,cur:i?S[i-1]:null};}
+function setNode(v,col,em){const m=T.mats[v];m.color.set(col);m.emissive.set(em?col:0x000000);m.emissiveIntensity=em?.35:0;T.lamps[v].material.color.set(col);}
+function setDist(v,text,bg,fg){const key2=text+bg;if(T.dkey[v]===key2)return;T.dkey[v]=key2;
+  const n=textSprite(text,{fs:34,fg,bg,pad:20,k:.011}),o=T.dsp[v];o.material.map.dispose();o.material.map=n.material.map;o.material.needsUpdate=true;o.scale.copy(n.scale);n.material.dispose();}
+function applySim(){
+  if(!T||!T.mats) return;
+  const C=T.C,i=sim.i,n=sim.n,end=n>0&&i>=n;
+  const paint=(k,col,w,em)=>{const m=T.roadMap[k];if(!m)return;m.material.color.set(col);m.material.emissive.set(col);m.material.emissiveIntensity=em;m.scale.z=w;};
+  for(const k in T.roadMap)paint(k,C.edge,1,0);
+  T.focusP=null;
+  if(sim.mode==="dij"){
+    const s=dijSnap(i);
+    for(const v in s.prev){const st=s.settled.has(v);paint(key(v,s.prev[v]),st?C.accent:AMB,st?1.9:1.5,.35);}
+    if(s.cur){for(const x of s.cur.updates)paint(key(s.cur.u,x.v),AMB,2.2,.6);T.focusP=w3(s.cur.u);}
+    if(end)for(const k of state.pathEdges)paint(k,C.accent,3.2,.7);
+    for(const v in G){const cur=s.cur&&s.cur.u===v,fin=s.dist[v]<Infinity;
+      if(cur)setNode(v,"#ffffff",true);else if(s.settled.has(v))setNode(v,C.accent,true);else if(fin)setNode(v,AMB,true);else setNode(v,C.muted,false);
+      T.dsp[v].visible=true;
+      setDist(v,fin?String(s.dist[v]):"∞",s.settled.has(v)?C.accent:fin?AMB:C.surface,s.settled.has(v)||fin?"#ffffff":C.muted);}
+    if(T.truck){const show=end&&state.path.length>1;if(show&&!T.truck.visible)T.truckS=0;T.truck.visible=show;T.pulses.forEach(p=>p.visible=show);}
+  }else{
+    const s=kruSnap(i);
+    for(const k of s.kept)paint(k,C.mst,2.4,.5);
+    for(const k of s.rej)paint(k,C.bad,.8,.1);
+    if(s.cur){const k=key(s.cur.u,s.cur.v);paint(k,s.cur.take?C.mst:C.bad,3.2,.9);T.focusP=w3(s.cur.u).lerp(w3(s.cur.v),.5);}
+    for(const v in G){const r=s.root[v];if(s.size[r]>1)setNode(v,PAL[r.charCodeAt(0)%PAL.length],true);else setNode(v,C.muted,false);T.dsp[v].visible=false;}
+    if(T.truck){T.truck.visible=false;T.pulses.forEach(p=>p.visible=false);}
+  }
+  T.rings.forEach(r=>r.visible=sim.mode==="dij");
+  if(end||i===0)T.focusP=null;
+}
+function spawnWaves(){
+  if(!T||reduce||!sim.i) return;
+  const add=(a,b,col)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.17,12,12),new THREE.MeshBasicMaterial({color:col}));m.position.copy(a);T.group.add(m);T.waves.push({m,a,b,t:0});};
+  if(sim.mode==="dij"){const s=state.dsteps[sim.i-1];if(s.u===state.to)return;const up=new Set(s.updates.map(x=>x.v)),pr=dijSnap(sim.i-1).settled;
+    for(const v of Object.keys(G[s.u]))if(!pr.has(v))add(w3(s.u),w3(v),up.has(v)?AMB:T.C.muted);}
+  else{const e=state.ksteps[sim.i-1];add(w3(e.u),w3(e.v),e.take?T.C.mst:T.C.bad);}
+}
+function updateUI(){
+  const n=sim.n,i=sim.i;$("sScrub").max=n;$("sScrub").value=i;
+  $("sPlay").textContent=sim.playing?"❚❚ Pause":(n&&i>=n?"↻ Replay":"▶ Play");
+  $("mdij").setAttribute("aria-pressed",String(sim.mode==="dij"));$("mkru").setAttribute("aria-pressed",String(sim.mode==="kru"));
+  let say="",chips="";
+  if(sim.mode==="dij"){
+    const s=dijSnap(i),c=s.cur;
+    if(!c)say=`Start: D(${state.from}) = 0 and every other site is ∞. Press Play, or step through it.`;
+    else{say=`<b>Step ${i}:</b> pick ${c.u} ${SHORT[c.u]}, the unsettled site with the smallest distance (D = ${c.d}). `+
+      (c.u===state.to?`<b>Route:</b> ${state.path.map(v=>SHORT[v]).join(" → ")}. Cheapest cost ${c.d}. Press ⏮ then Play to watch how Dijkstra found it.`:c.updates.length?"Relax: "+c.updates.map(x=>`${x.v} ${fmt(x.old)}→${x.nd}`).join(", ")+".":"No shorter routes found from here.");}
+    const q=Object.keys(G).filter(v=>s.dist[v]<Infinity&&!s.settled.has(v)).sort((a,b)=>s.dist[a]-s.dist[b]||a.localeCompare(b));
+    chips="Priority queue: "+(q.length?q.map((v,j)=>`<span class="chip${j?"":" next"}"><b>${v}</b>${s.dist[v]}</span>`).join(""):"empty");
+    $("sSay").style.background="";
+  }else{
+    const s=kruSnap(i),c=s.cur;
+    if(!c)say="Edges are sorted by cost, cheapest first. An edge is kept only if it joins two separate groups.";
+    else say=`<b>Edge ${i} of ${n}:</b> ${c.u}–${c.v} (cost ${c.w}) is `+(c.take?`<b>kept</b>, it joins two groups. Total ${c.total}.`:"<b>skipped</b>, both ends are already connected so it would form a cycle.");
+    say+=` ${s.comps===1?"<b>All 20 sites are connected.</b>":s.comps+" separate groups remain."}`;
+    chips="Next edges: "+state.ksteps.slice(i,i+6).map((e,j)=>`<span class="chip${j?"":" next"}"><b>${e.u}–${e.v}</b>${e.w}</span>`).join("");
+    $("sSay").style.background="var(--mst-soft)";
+  }
+  $("sSay").innerHTML=say;$("sQ").innerHTML=chips;
+  document.querySelectorAll("[data-row]").forEach(r=>{const j=+r.dataset.row;r.classList.toggle("cur",j===i);r.classList.toggle("fut",j>i);});
+  const row=document.querySelector(`#p-${sim.mode==="dij"?"path":"mst"} [data-row="${i}"]`);
+  if(row){const c=row.closest(".scroll");c.scrollTop+=row.getBoundingClientRect().top-c.getBoundingClientRect().top-c.clientHeight/2;}
+}
+function stepTo(i,anim){i=clamp(i,0,sim.n);const fwd=i===sim.i+1;sim.i=i;applySim();updateUI();if(anim&&fwd)spawnWaves();}
+function startSim(mode,steps,play){sim.mode=mode;sim.n=steps.length;sim.i=0;sim.acc=0;sim.playing=!!play&&!reduce;applySim();updateUI();}
+function togglePlay(){if(sim.n&&sim.i>=sim.n){stepTo(0);}sim.playing=!sim.playing;sim.acc=1;updateUI();}
+$("sPlay").onclick=togglePlay;
+$("sNext").onclick=()=>{sim.playing=false;stepTo(sim.i+1,true);};
+$("sBack").onclick=()=>{sim.playing=false;stepTo(sim.i-1);};
+$("sFirst").onclick=()=>{sim.playing=false;stepTo(0);};
+$("sLast").onclick=()=>{sim.playing=false;stepTo(sim.n);};
+$("sScrub").oninput=e=>{sim.playing=false;stepTo(+e.target.value);};
+$("sSpeed").onchange=e=>{sim.speed=+e.target.value;};
+$("mdij").onclick=()=>solve();$("mkru").onclick=()=>showMST();
+$("afocus").onclick=()=>{if(!T)return;T.focusOn=!T.focusOn;$("afocus").setAttribute("aria-pressed",String(T.focusOn));};
+document.addEventListener("keydown",e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+  if(e.code==="Space"){e.preventDefault();togglePlay();}else if(e.key==="ArrowRight"){sim.playing=false;stepTo(sim.i+1,true);}else if(e.key==="ArrowLeft"){sim.playing=false;stepTo(sim.i-1);}});
+
+/* Moving route line: bright dashes flow from origin to destination, drawn on progressively. */
+function pathAt(q){const pts=T.pathPts;q=clamp(q,0,T.pathLen);let i=1;while(i<pts.length-1&&T.cum[i]<q)i++;
+  const a=pts[i-1],b=pts[i],f=(q-T.cum[i-1])/((T.cum[i]-T.cum[i-1])||1);
+  return {p:a.clone().lerp(b,clamp(f,0,1)),yaw:-Math.atan2(b.z-a.z,b.x-a.x)};}
+function makeDashes(){
+  T.dashes=[];T.drawS=0;const geo=new THREE.BoxGeometry(.55,.07,.24),col=new THREE.Color(T.C.accent).lerp(new THREE.Color(0xffffff),.6);
+  const n=Math.max(8,Math.round(T.pathLen/1.1));
+  for(let j=0;j<n;j++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:col}));m.userData.off=j/n;m.visible=false;T.group.add(m);T.dashes.push(m);}
+}
+function init3D(){
+  if(T||!hasGL) return !!T;
+  try{
+    const host=$("view3d"),renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    host.style.cssText="position:absolute;inset:0";
+    host.appendChild(renderer.domElement);
+    const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(45,1,.1,200);
+    scene.add(new THREE.AmbientLight(0xffffff,.75));
+    const sun=new THREE.DirectionalLight(0xffffff,.8);sun.position.set(8,16,6);scene.add(sun);
+    T={renderer,scene,camera,host,group:null,theta:.55,phi:.95,radius:33,target:new THREE.Vector3(),auto:!reduce,follow:false,
+       t:0,clk:new THREE.Clock(),raf:0,pick:[],mats:null,lamps:{},dsp:{},dkey:{},roadMap:{},waves:[],focusP:null,focusOn:true,C:null,truck:null,cars:[],pulses:[],roads:[],rings:[],pathPts:[],pathLen:0,truckS:0,hold:0,
+       ray:new THREE.Raycaster(),ptrs:new Map(),moved:0,lastPinch:0};
+    bindControls();
+    new ResizeObserver(resize3D).observe(host);
+    resize3D();
+    return true;
+  }catch(err){console.warn("3D unavailable",err);T=null;return false;}
+}
+function resize3D(){
+  if(!T) return;
+  const w=T.host.clientWidth,h=T.host.clientHeight;if(!w||!h) return;
+  T.renderer.setSize(w,h,false);
+  T.camera.aspect=w/h;T.camera.fov=w/h<1?62:45;T.camera.updateProjectionMatrix();
+  if(!T.userZoom){T.radius=w/h<1.1?46:38;} if(!T.userTilt){T.phi=w/h<1.1?.78:.92;}
+  if(view==="3d") T.renderer.render(T.scene,T.camera);
+}
+
+function rebuild3D(){
+  if(!T) return;
+  const C={bg:cssv("--scene"),surface:cssv("--surface"),ink:cssv("--ink"),muted:cssv("--muted"),line:cssv("--line"),
+           accent:cssv("--accent"),mst:cssv("--mst"),edge:cssv("--edge")};
+  T.scene.background=new THREE.Color(C.bg);T.scene.fog=new THREE.Fog(C.bg,65,140);
+  if(T.group){T.scene.remove(T.group);disposeGroup(T.group);}
+  const grp=new THREE.Group();T.group=grp;T.scene.add(grp);
+  T.pick=[];T.mats={};T.lamps={};T.dsp={};T.dkey={};T.roadMap={};T.waves=[];T.C=Object.assign({},C,{bad:cssv("--bad"),dark:new THREE.Color(C.surface).getHSL({}).l<.4});T.roads=[];T.rings=[];T.cars=[];T.pulses=[];T.truck=null;T.t=0;T.truckS=0;T.hold=0;
+
+  // ground
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(90,90),new THREE.MeshStandardMaterial({color:new THREE.Color(C.surface).lerp(new THREE.Color(0x7fb089),.18),roughness:1}));
+  ground.rotation.x=-Math.PI/2;ground.position.y=-.02;grp.add(ground);
+  const lake=new THREE.Mesh(new THREE.PlaneGeometry(24,90),new THREE.MeshStandardMaterial({color:T.C.dark?0x1c4a6e:0x4a90c2,roughness:.25,metalness:.2}));
+  lake.rotation.x=-Math.PI/2;lake.position.set(34,0,0);grp.add(lake);
+  const shore=new THREE.Mesh(new THREE.PlaneGeometry(1.2,90),new THREE.MeshStandardMaterial({color:T.C.dark?0x4a4636:0xe6d9b0,roughness:1}));
+  shore.rotation.x=-Math.PI/2;shore.position.set(21.4,-.005,0);grp.add(shore);
+  const ll=textSprite("Lake Malawi",{fs:44,fg:"#ffffff",weight:600,pad:10,k:.022});ll.position.set(29,.6,-2);grp.add(ll);
+  const grid=new THREE.GridHelper(90,90,C.line,C.line);grid.material.transparent=true;grid.material.opacity=.55;grp.add(grid);
+
+  {let sd=7;const rnd=()=>(sd=(sd*16807)%2147483647)/2147483647;
+   const segs=EDGES.map(([u,v])=>[w3(u),w3(v)]),nodes=Object.keys(POS).map(w3),spots=[];
+   const dseg=(p,a,b)=>{const ab=b.clone().sub(a),t=clamp(p.clone().sub(a).dot(ab)/ab.lengthSq(),0,1);return p.distanceTo(a.clone().add(ab.multiplyScalar(t)));};
+   for(let k=0;k<1500&&spots.length<150;k++){const p=new THREE.Vector3((rnd()-.5)*38-1.5,0,(rnd()-.5)*34);
+     if(nodes.some(q=>q.distanceTo(p)<1.9)||segs.some(([a,b])=>dseg(p,a,b)<.9))continue;spots.push(p);}
+   const cone=new THREE.InstancedMesh(new THREE.ConeGeometry(.28,.9,7),new THREE.MeshStandardMaterial({color:new THREE.Color(C.surface).lerp(new THREE.Color(0x3f8a52),.75),roughness:.9}),spots.length),M=new THREE.Matrix4();
+   spots.forEach((p,j)=>{const z=.7+rnd()*.7;M.compose(new THREE.Vector3(p.x,.45*z,p.z),new THREE.Quaternion(),new THREE.Vector3(z,z,z));cone.setMatrixAt(j,M);});
+   grp.add(cone);
+   const hs=[];
+   for(const q of nodes){let c=0;for(let k=0;k<70&&c<9;k++){const a=rnd()*6.283,d=1.7+rnd()*1.9,p=new THREE.Vector3(q.x+Math.cos(a)*d,0,q.z+Math.sin(a)*d);
+     if(p.x>20||nodes.some(o=>o!==q&&o.distanceTo(p)<1.9)||segs.some(([x,y])=>dseg(p,x,y)<.6)||hs.some(h=>h.distanceTo(p)<.75)||spots.some(t=>t.distanceTo(p)<.6))continue;hs.push(p);c++;}}
+   const hm=new THREE.InstancedMesh(new THREE.BoxGeometry(.5,.34,.42),new THREE.MeshStandardMaterial({roughness:.8}),hs.length),
+         rm=new THREE.InstancedMesh(new THREE.ConeGeometry(.42,.26,4),new THREE.MeshStandardMaterial({color:0xa4533f,roughness:.8}),hs.length);
+   const wall=[0xe8dcc4,0xd9c7a0,0xcfd8d4,0xe3b9a0],up=new THREE.Vector3(0,1,0);
+   hs.forEach((p,j)=>{const y=rnd()*1.5;M.compose(new THREE.Vector3(p.x,.17,p.z),new THREE.Quaternion().setFromAxisAngle(up,y),new THREE.Vector3(1,1,1));hm.setMatrixAt(j,M);hm.setColorAt(j,new THREE.Color(wall[j%4]));
+     M.compose(new THREE.Vector3(p.x,.47,p.z),new THREE.Quaternion().setFromAxisAngle(up,y+Math.PI/4),new THREE.Vector3(.8,1,.65));rm.setMatrixAt(j,M);});
+   grp.add(hm,rm);}
+
+  // roads
+  for(const [u,v,w] of EDGES){
+    const k=key(u,v),a=w3(u),b=w3(v),len=a.distanceTo(b);
+    const onPath=false,inMst=false;
+    const colr=onPath?C.accent:inMst?C.mst:C.edge;
+    const width=onPath?.5:inMst?.42:.2;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(1,.06,width),new THREE.MeshStandardMaterial({color:colr,roughness:.7,emissive:(onPath||inMst)?colr:0x000000,emissiveIntensity:(onPath||inMst)?.45:0}));
+    m.position.copy(a).lerp(b,.5);m.position.y=.03+(onPath?.02:0);
+    m.rotation.y=-Math.atan2(b.z-a.z,b.x-a.x);m.scale.x=len;
+    m.userData={a,b,len,u,v,order:inMst?state.mstOrder.get(k):-1};
+    grp.add(m);T.roads.push(m);T.roadMap[k]=m;
+    const bed=new THREE.Mesh(new THREE.BoxGeometry(1,.03,.62),new THREE.MeshStandardMaterial({color:T.C.dark?0x39413f:0x6b7370,roughness:1}));
+    bed.position.copy(m.position);bed.position.y=.015;bed.rotation.y=m.rotation.y;bed.scale.x=len;grp.add(bed);
+    if(inMst&&!reduce){m.scale.x=.001;}
+    // weight label
+    const mid=a.clone().lerp(b,.5);
+    const hl=onPath||inMst;
+    const lab=textSprite(String(w),{fs:30,fg:C.ink,halo:C.surface,weight:600,pad:10,k:.009});
+    lab.position.set(mid.x,.55,mid.z);grp.add(lab);
+  }
+
+  // towers
+  for(const v of Object.keys(POS)){
+    const p=w3(v),kd=kind(v),on=false;
+    const tone=on?C.accent:C.muted;
+    const mat=new THREE.MeshStandardMaterial({color:tone,roughness:.55,metalness:.15,emissive:on?C.accent:0x000000,emissiveIntensity:on?.25:0});
+    T.mats[v]=mat;const t=new THREE.Group();t.position.copy(p);
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(.75,.8,.1,28),new THREE.MeshStandardMaterial({color:C.line,roughness:.9}));base.position.y=.05;t.add(base);
+    let top=1;
+    if(kd==="gen"){const m=new THREE.Mesh(new THREE.CylinderGeometry(.34,.55,1.7,24),mat);m.position.y=.95;t.add(m);top=1.85;}
+    else if(kd==="sub"){const m=new THREE.Mesh(new THREE.BoxGeometry(.7,1.1,.7),mat);m.position.y=.65;t.add(m);
+      const pole=new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,.7,8),mat);pole.position.y=1.5;t.add(pole);top=1.9;}
+    else{const m=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.7,20),mat);m.position.y=.45;t.add(m);
+      const roof=new THREE.Mesh(new THREE.ConeGeometry(.65,.5,20),mat);roof.position.y=1.05;t.add(roof);top=1.35;}
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(.14,14,14),new THREE.MeshBasicMaterial({color:on?C.accent:C.edge}));
+    lamp.position.y=top+.1;t.add(lamp);T.lamps[v]=lamp;
+    t.traverse(o=>{if(o.isMesh)o.userData.v=v;});
+    grp.add(t);t.children.forEach(c=>T.pick.push(c));
+    const lab=textSprite(`${v}  ${SHORT[v]}`,{fs:34,fg:on?"#ffffff":C.ink,bg:on?C.accent:C.surface,pad:22,k:.0098});
+    lab.position.set(p.x,top+.85,p.z);lab.userData.v=v;grp.add(lab);T.pick.push(lab);
+    const ds=textSprite("∞",{fs:34,fg:C.muted,bg:C.surface,pad:20,k:.011});ds.position.set(p.x,top+1.6,p.z);ds.userData.v=v;grp.add(ds);T.dsp[v]=ds;
+    if(v===state.from||v===state.to){
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(1.05,.06,10,48),new THREE.MeshBasicMaterial({color:C.mst}));
+      ring.rotation.x=Math.PI/2;ring.position.set(p.x,.12,p.z);grp.add(ring);T.rings.push(ring);
+    }
+  }
+
+  // route vehicle and energy pulses
+  T.pathPts=state.path.map(v=>{const q=w3(v);q.y=.12;return q;});
+  T.pathLen=0;T.cum=[0];
+  for(let i=1;i<T.pathPts.length;i++){T.pathLen+=T.pathPts[i].distanceTo(T.pathPts[i-1]);T.cum.push(T.pathLen);}
+  if(T.pathPts.length>1){
+    T.truck=makeCar(new THREE.Color(C.accent),1.25,true);grp.add(T.truck);
+    if(reduce){placeOnPath(T.truck,T.pathLen);}
+    if(!reduce)for(let i=0;i<7;i++){
+      const s=new THREE.Mesh(new THREE.SphereGeometry(.1,10,10),new THREE.MeshBasicMaterial({color:C.accent}));
+      s.userData.off=i/7;grp.add(s);T.pulses.push(s);}
+    makeDashes();
+  }
+  // ambient traffic
+  if(!reduce){
+    const tones=[0xd7c26a,0xc2655a,0x6a8fd7,0xb9bfbc,0x5aa27a,0xe8e8e8,0x8a63c9];
+    for(let i=0;i<16;i++){
+      const car=makeCar(tones[i%tones.length],.8);grp.add(car);
+      const vs=Object.keys(G),from=vs[(i*7+3)%vs.length];
+      const nb=Object.keys(G[from]);
+      T.cars.push({m:car,from,to:nb[i%nb.length],p:Math.random(),speed:1.1+Math.random()*.7});
+    }
+  }
+  applySim();
+  const stat=$("statBest");if(stat) stat.textContent=String(shortest(G,"A","Q").cost);
+}
+function placeOnPath(m,s){
+  const pts=T.pathPts;if(pts.length<2) return;
+  s=clamp(s,0,T.pathLen);let i=1;while(i<pts.length-1&&T.cum[i]<s)i++;
+  const a=pts[i-1],b=pts[i],seg=T.cum[i]-T.cum[i-1]||1,f=(s-T.cum[i-1])/seg;
+  m.position.copy(a).lerp(b,f);
+  const lane=new THREE.Vector3(-(b.z-a.z),0,b.x-a.x).normalize().multiplyScalar(.0);
+  m.position.add(lane);
+  const yaw=-Math.atan2(b.z-a.z,b.x-a.x);
+  let d=yaw-m.rotation.y;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
+  m.rotation.y+=d*.25;
+}
+function frame(){
+  if(!T||view!=="3d"){if(T)T.raf=0;return;}
+  T.raf=requestAnimationFrame(frame);
+  const dt=Math.min(T.clk.getDelta(),.05);T.t+=dt;
+  // camera
+  if(T.auto) T.theta+=dt*.07;
+  const fOn=T.focusOn&&T.focusP&&!T.follow,tgt=(T.follow&&T.truck&&T.truck.visible)?T.truck.position:fOn?T.focusP:new THREE.Vector3(0,0,1.6);
+  T.target.lerp(tgt,.07);
+  const r=T.follow&&T.truck&&T.truck.visible?Math.min(T.radius,14):fOn?Math.min(T.radius,22):T.radius;
+  T.camera.position.set(T.target.x+r*Math.sin(T.phi)*Math.sin(T.theta),T.target.y+r*Math.cos(T.phi),T.target.z+r*Math.sin(T.phi)*Math.cos(T.theta));
+  T.camera.lookAt(T.target);
+  if(sim.playing){sim.acc+=dt*sim.speed;if(sim.acc>=1.1){sim.acc=0;if(sim.i<sim.n)stepTo(sim.i+1,true);if(sim.i>=sim.n){sim.playing=false;updateUI();}}}
+  for(let j=T.waves.length-1;j>=0;j--){const w=T.waves[j];w.t+=dt*.9*Math.max(sim.speed,1);
+    if(w.t>=1){T.group.remove(w.m);w.m.geometry.dispose();w.m.material.dispose();T.waves.splice(j,1);continue;}
+    w.m.position.copy(w.a).lerp(w.b,w.t);w.m.position.y=.35+.5*Math.sin(w.t*Math.PI);}
+  for(const m of T.roads){
+    if(m.userData.order>=0&&!reduce){
+      const p=clamp((T.t-.12*m.userData.order)/.5,0,1),{a,b,len}=m.userData;
+      m.scale.x=Math.max(len*p,.001);m.position.copy(a).add(b.clone().sub(a).multiplyScalar(p/2));m.position.y=.03;
+    }
+  }
+  for(const r of T.rings){r.scale.setScalar(1+.08*Math.sin(T.t*3));}
+  // crew truck
+  if(T.truck&&T.truck.visible&&!reduce){
+    if(T.truckS<T.pathLen){T.truckS=Math.min(T.truckS+dt*3.2,T.pathLen);}
+    else{T.hold+=dt;if(T.hold>1.6){T.truckS=0;T.hold=0;}}
+    placeOnPath(T.truck,T.truckS);
+    for(const s of T.pulses){const q=((T.t*.12+s.userData.off)%1)*T.pathLen;
+      let i=1;while(i<T.pathPts.length-1&&T.cum[i]<q)i++;
+      const a=T.pathPts[i-1],b=T.pathPts[i],f=(q-T.cum[i-1])/((T.cum[i]-T.cum[i-1])||1);
+      s.position.copy(a).lerp(b,clamp(f,0,1));s.position.y=.4+.08*Math.sin(T.t*6+s.userData.off*9);}
+  }
+  if(T.dashes&&T.dashes.length&&T.truck){const vis=T.truck.visible;T.drawS=vis?Math.min(T.pathLen,(T.drawS||0)+dt*(reduce?999:9)):0;
+    for(const m of T.dashes){m.visible=vis;if(!vis)continue;
+      const q=reduce?m.userData.off*T.pathLen:(m.userData.off*T.pathLen+T.t*2.4)%T.pathLen;
+      if(q>T.drawS){m.visible=false;continue;}
+      const r=pathAt(q);m.position.copy(r.p);m.position.y=.2;m.rotation.y=r.yaw;}}
+  // ambient cars drive along roads and turn at junctions
+  for(const c of T.cars){
+    const a=w3(c.from),b=w3(c.to),len=a.distanceTo(b);
+    c.p+=dt*c.speed/len;
+    if(c.p>=1){const prev=c.from;c.from=c.to;const nb=Object.keys(G[c.from]).filter(x=>x!==prev);const opts=nb.length?nb:Object.keys(G[c.from]);c.to=opts[Math.floor(Math.random()*opts.length)];c.p=0;continue;}
+    const d=b.clone().sub(a),n=new THREE.Vector3(-d.z,0,d.x).normalize().multiplyScalar(.14);
+    c.m.position.copy(a).lerp(b,c.p).add(n);c.m.position.y=.06;
+    const yaw=-Math.atan2(d.z,d.x);let df=yaw-c.m.rotation.y;while(df>Math.PI)df-=2*Math.PI;while(df<-Math.PI)df+=2*Math.PI;c.m.rotation.y+=df*.2;
+  }
+  T.renderer.render(T.scene,T.camera);
+}
+function bindControls(){
+  const cv=T.renderer.domElement;
+  const hit=e=>{
+    const r=cv.getBoundingClientRect();
+    T.ray.setFromCamera(new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1),T.camera);
+    const h=T.ray.intersectObjects(T.pick,false)[0];return h?h.object.userData.v:null;
+  };
+  cv.addEventListener("pointerdown",e=>{cv.setPointerCapture(e.pointerId);T.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});T.moved=0;T.auto=false;});
+  cv.addEventListener("pointermove",e=>{
+    const p=T.ptrs.get(e.pointerId);
+    if(!p){const v=hit(e);cv.style.cursor=v?"pointer":"grab";const tip=$("tip");
+      if(v){tip.textContent=`${v}: ${NAMES[v]}`;tip.hidden=false;}else tip.hidden=true;return;}
+    const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+    if(T.ptrs.size===1){T.theta-=dx*.006;T.phi=clamp(T.phi-dy*.005,.25,1.45);T.userTilt=true;T.moved+=Math.abs(dx)+Math.abs(dy);}
+    else if(T.ptrs.size===2){const [a,b]=[...T.ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(T.lastPinch){T.radius=clamp(T.radius*T.lastPinch/d,9,80);T.userZoom=true;}T.lastPinch=d;T.moved+=10;}
+  });
+  const up=e=>{
+    if(T.ptrs.size===1&&T.moved<6&&e.type==="pointerup"){const v=hit(e);if(v)pickSite(v);}
+    T.ptrs.delete(e.pointerId);T.lastPinch=0;
+  };
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+  cv.addEventListener("pointerleave",()=>{$("tip").hidden=true;});
+  cv.addEventListener("wheel",e=>{e.preventDefault();T.radius=clamp(T.radius*(1+e.deltaY*.001),9,80);T.userZoom=true;T.auto=false;},{passive:false});
+}
+function resetCam(){if(!T)return;T.theta=.55;T.userTilt=false;T.userZoom=false;T.auto=!reduce;T.follow=false;$("follow").setAttribute("aria-pressed","false");resize3D();}
+
+function setView(v){
+  if(v==="3d"&&!(hasGL&&init3D())) v="2d";
+  view=v;
+  $("v3").setAttribute("aria-pressed",String(v==="3d"));$("v2").setAttribute("aria-pressed",String(v==="2d"));
+  $("view3d").hidden=v!=="3d";svg.toggleAttribute("hidden",v!=="2d");$("hud").hidden=v!=="3d";$("tip").hidden=true;
+  $("v3").hidden=!hasGL;
+  $("hint").textContent=v==="3d"?"Drag to rotate, scroll or pinch to zoom, click two sites to set From and To. Space plays or pauses, arrow keys step.":"Click two sites to set From and To.";
+  if(v==="3d"){resize3D();if(T&&!T.raf){T.clk.getDelta();frame();}}
+}
+$("v3").onclick=()=>setView("3d");$("v2").onclick=()=>setView("2d");
+$("replay").onclick=()=>{if(T){T.truckS=0;T.hold=0;}stepTo(0);sim.playing=!reduce;sim.acc=1;updateUI();};
+$("follow").onclick=()=>{if(!T)return;T.follow=!T.follow;T.auto=false;$("follow").setAttribute("aria-pressed",String(T.follow));};
+$("reset").onclick=resetCam;
+// re-colour the scene when the theme changes
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>setTimeout(rebuild3D,50));
+new MutationObserver(()=>setTimeout(rebuild3D,50)).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts?.ready.then(()=>rebuild3D());
+
+/* ---------------- PANELS ---------------- */
+function opt(sel,val){
+  sel.innerHTML=Object.keys(NAMES).map(v=>`<option value="${v}">${v} — ${NAMES[v]}</option>`).join("");
+  sel.value=val;
+}
+function solve(){
+  state.from=$("from").value;state.to=$("to").value;
+  const p=$("p-path");
+  let r;
+  let base=null;
+  try{r=shortest(activeGraph(),state.from,state.to);if(blocked)base=shortest(G,state.from,state.to);}catch(e){p.innerHTML=`<div class="no">${e.message}</div>`;return;}
+  state.path=r.path||[];state.pathEdges=new Set();state.pathNodes=new Set();
+  if(r.path){r.path.forEach((v,i)=>{state.pathNodes.add(v);if(i)state.pathEdges.add(key(r.path[i-1],v));});}
+  let html="";
+  if(r.path){
+    html+=`<div class="result"><div class="big"><span id="cost">0</span> MK million</div>
+      <div class="route">${r.path.map(v=>`<b>${v}</b> ${SHORT[v]}`).join(" → ")}</div></div>`;
+  }else html+=`<div class="result"><div class="big">No path</div></div>`;
+  if(blocked&&base&&base.path){const L=blocked[0]+"–"+blocked[1];
+    html+=r.path?`<p class="note"><b>Fault on ${L}.</b> Normal route cost ${base.cost} (${base.path.join("-")}). Rerouted cost ${r.cost}${r.cost>base.cost?` (+${r.cost-base.cost})`:" (unchanged, the link was not on the route)"}.</p>`:`<p class="note"><b>Fault on ${L}</b> cuts ${state.to} off from ${state.from}.</p>`;}
+  html+=`<h2>Dijkstra, step by step</h2>
+    <p class="note">Each step selects the unvisited vertex with the smallest distance, then applies D(v) = min(D(v), D(u) + w(u,v)) to its neighbours. It stops when the destination is selected.</p>
+    <div class="scroll"><table><thead><tr><th>Step</th><th>Selected</th><th>D(u)</th><th>Distance updates</th></tr></thead><tbody>`;
+  for(const s of r.steps){
+    const last=s.u===state.to;
+    html+=`<tr data-row="${s.step}" class="${last?"hit":""}"><td class="m">${s.step}</td><td class="m">${s.u}</td><td class="m">${s.d}</td><td class="m">${
+      last?"destination reached":(s.updates.length?s.updates.map(x=>`${x.v}: ${fmt(x.old)}→${x.nd}`).join("<br>"):"<span class='muted'>none</span>")}</td></tr>`;
+  }
+  html+="</tbody></table></div>";
+  const all=dijkstra(activeGraph(),state.from);
+  html+=`<details><summary><b>Cheapest cost from ${state.from} to every site</b></summary><div class="scroll"><table><thead><tr><th>Site</th><th>Cost</th><th>Route</th></tr></thead><tbody>`+
+    Object.keys(all.dist).sort((x,y)=>all.dist[x]-all.dist[y]||x.localeCompare(y)).map(v=>`<tr><td>${v} ${SHORT[v]}</td><td class="m">${fmt(all.dist[v])}</td><td class="m">${all.dist[v]<Infinity?pathTo(all.prev,v).join("-"):"none"}</td></tr>`).join("")+"</tbody></table></div></details>";
+  p.innerHTML=html;
+  if(r.path)countUp($("cost"),r.cost);
+  state.mstEdges=new Set();state.mstOrder=new Map();
+  state.dsteps=r.steps;sim.mode="dij";sim.i=0;sim.n=r.steps.length;sim.playing=false;drawMap();startSim("dij",r.steps,false);stepTo(sim.n);showTab("path");
+}
+function showMST(){
+  const k=kruskal(EDGES,Object.keys(G).sort());
+  state.mstEdges=new Set(k.tree.map(e=>key(e[0],e[1])));
+  state.mstOrder=new Map(k.tree.map((e,i)=>[key(e[0],e[1]),i]));
+  state.path=[];state.pathEdges=new Set();state.pathNodes=new Set();
+  let html=`<div class="result mst"><div class="big"><span id="mcost">0</span> MK million</div>
+    <div class="route">${k.tree.length} edges connect all 20 sites at the lowest total cost.</div></div>
+    <h2>Kruskal's algorithm, step by step</h2>
+    <p class="note">Edges are taken in order of cost. An edge is kept only if it joins two separate groups, so it never forms a cycle.</p>
+    <div class="scroll"><table><thead><tr><th>#</th><th>Edge</th><th>Cost</th><th>Decision</th><th>Total</th></tr></thead><tbody>`;
+  k.steps.forEach((s,i)=>{html+=`<tr data-row="${i+1}" class="${s.take?"keep":""}"><td class="m">${i+1}</td><td class="m">${s.u}–${s.v}</td><td class="m">${s.w}</td><td>${s.take?"<span class='ok'>kept</span>":"<span class='muted'>skipped, forms a cycle</span>"}</td><td class="m">${s.take?s.total:""}</td></tr>`;});
+  html+="</tbody></table></div>";
+  $("p-mst").innerHTML=html;countUp($("mcost"),k.total);
+  state.ksteps=k.steps;sim.mode="kru";sim.i=0;sim.n=k.steps.length;sim.playing=false;drawMap();startSim("kru",k.steps,true);showTab("mst");
+}
+function showTests(){
+  const res=runTests(),n=res.filter(r=>r.pass).length;
+  let html=`<div class="result ${n===res.length?"":"mst"}"><div class="big">${n} of ${res.length} tests passed</div>
+    <div class="route">${n===res.length?"Everything behaves as expected.":"Some tests failed. See the rows marked FAIL."}</div></div>
+    <div class="scroll"><table><thead><tr><th>Test</th><th>Input</th><th>Expected</th><th>Actual</th><th></th></tr></thead><tbody>`;
+  for(const r of res)html+=`<tr><td>${r.name}</td><td class="m">${r.input}</td><td>${r.expected}</td><td class="m">${r.actual}</td><td class="${r.pass?"ok":"no"}">${r.pass?"PASS":"FAIL"}</td></tr>`;
+  html+=`</tbody></table></div><button id="rerun" class="ghost">Run tests again</button>`;
+  $("p-tests").innerHTML=html;
+  $("rerun").onclick=showTests;
+  const dl=document.createElement("button");dl.className="ghost";dl.textContent="Download test report";dl.style.marginLeft="8px";
+  dl.onclick=()=>{const txt="Malawi Grid Router - test report ("+n+"/"+res.length+" passed)\n\n"+res.map(r=>`[${r.pass?"PASS":"FAIL"}] ${r.name}\n  input: ${r.input}\n  expected: ${r.expected}\n  actual: ${r.actual}`).join("\n\n");
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));a.download="test_report.txt";a.click();};
+  $("rerun").after(dl);
+  window.__testResults=res;
+}
+function showTab(name){
+  for(const t of document.querySelectorAll(".tab")){t.setAttribute("aria-selected",String(t.dataset.tab===name));}
+  for(const n of ["path","mst","tests"]) $("p-"+n).hidden=(n!==name);
+}
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  const n=t.dataset.tab;
+  if(n==="mst")showMST();else if(n==="path")solve();else showTab("tests");
+}));
+document.querySelectorAll(".tab").forEach((t,i,all)=>{t.setAttribute("aria-controls","p-"+t.dataset.tab);t.addEventListener("keydown",e=>{
+  const k={ArrowRight:1,ArrowLeft:-1}[e.key];let j=k?(i+k+all.length)%all.length:e.key==="Home"?0:e.key==="End"?all.length-1:-1;
+  if(j<0)return;e.preventDefault();all[j].focus();all[j].click();});});
+$("go").onclick=solve;
+$("mstbtn").onclick=showMST;
+$("clear").onclick=()=>{state.path=[];state.pathEdges=new Set();state.pathNodes=new Set();state.mstEdges=new Set();state.mstOrder=new Map();drawMap();};
+$("block").innerHTML='<option value="">None (all links working)</option>'+EDGES.map(e=>`<option value="${key(e[0],e[1])}">${e[0]}–${e[1]} (${SHORT[e[0]]} to ${SHORT[e[1]]}, ${e[2]})</option>`).join("");
+$("block").onchange=()=>{blocked=$("block").value;solve();};
+$("from").onchange=solve;$("to").onchange=solve;
+
+$("vlist").innerHTML=Object.keys(NAMES).map(v=>`<div><b>${v}</b>${NAMES[v]}</div>`).join("");
+opt($("from"),"A");opt($("to"),"Q");
+showTests();showMST();solve();
+setView(hasGL?"3d":"2d");
+</script>
+
+</body></html>
